@@ -1,34 +1,36 @@
 import json
 import boto3
 
-
 def lambda_handler(event, context):
     try:
+        # Parsear body
         body = json.loads(event.get('body', '{}'))
-        tenant_id = body.get('tenant_id')
-        alumno_id = body.get('alumno_id')
+        
+        tenant_id = body['tenant_id']
+        alumno_id = body['alumno_id']
+        alumno_datos = body['alumno_datos']
 
-        if not tenant_id or not alumno_id:
-            return {'statusCode': 400, 'body': json.dumps({'error': 'tenant_id y alumno_id requeridos'})}
-
+        # Proceso
         dynamodb = boto3.resource('dynamodb')
         table = dynamodb.Table('t_alumnos')
-
-        item = {
-            'tenant_id': tenant_id,
-            'alumno_id': alumno_id,
-            'alumno_datos': body.get('alumno_datos', {})
-        }
-
-        table.put_item(Item=item)
-
+        
+        response = table.update_item(
+            Key={'tenant_id': tenant_id, 'alumno_id': alumno_id},
+            UpdateExpression="SET alumno_datos = :datos",
+            ExpressionAttributeValues={':datos': alumno_datos},
+            ReturnValues="ALL_NEW"
+        )
+        
+        # Salida
         return {
             'statusCode': 200,
             'body': json.dumps({
-                "statusCode": 200,
-                "message": "Alumno creado exitosamente",
-                "data": item
+                'message': 'Alumno modificado exitosamente',
+                'data': response.get('Attributes')
             })
         }
     except Exception as e:
-        return {'statusCode': 500, 'body': json.dumps({'error': str(e)})}
+        return {
+            'statusCode': 500,
+            'body': json.dumps({'error': str(e)})
+        }
